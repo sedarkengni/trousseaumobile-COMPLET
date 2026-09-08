@@ -1,0 +1,19 @@
+{
+  "name": "trousseau-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Trousseau — application mobile (coquille Capacitor autour du site web existant)",
+  "scripts": {
+    "sync": "cap sync"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
+    "@capacitor/ios": "^8.5.1"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.1",
+    "typescript": "^7.0.2"
+  }
+}

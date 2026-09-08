@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Uplinks Apps</title>
+<link rel="stylesheet" href="offline.css">
+</head>
+<body>
+  <div id="boot" class="boot">
+    <img class="boot-logo" src="icon-only.png" alt="" onerror="this.style.display='none'">
+    <div class="boot-spinner" aria-hidden="true"></div>
+    <p id="boot-msg" class="boot-msg">Démarrage…</p>
+  </div>
+
+  <div id="login" class="screen" hidden>
+    <form class="card" id="login-form">
+      <h1>Uplinks Apps</h1>
+      <p class="sub">Connexion nécessaire une première fois (avec internet) pour activer le mode hors-ligne.</p>
+      <div class="field">
+        <label for="login-username">Nom d'utilisateur</label>
+        <input id="login-username" type="text" autocomplete="username" autocapitalize="off" autocorrect="off" required>
+      </div>
+      <div class="field">
+        <label for="login-password">Mot de passe</label>
+        <input id="login-password" type="password" autocomplete="current-password" required>
+      </div>
+      <div id="login-error" class="error" hidden></div>
+      <button type="submit">Se connecter</button>
+    </form>
+  </div>
+
+  <div id="offline-app" class="screen" hidden>
+    <header class="topbar">
+      <div class="topbar-title">
+        <span class="dot dot-offline"></span>
+        <span>Mode hors-ligne</span>
+      </div>
+      <div class="topbar-sub" id="pending-indicator"></div>
+    </header>
+
+    <div id="offline-list" class="list"></div>
+
+    <div id="offline-empty" class="empty" hidden>
+      <p>Aucune tâche en cache pour l'instant.</p>
+      <p class="hint">Ouvrez l'app avec internet au moins une fois pour que vos tâches soient disponibles hors-ligne.</p>
+    </div>
+
+    <footer class="footer">
+      <button type="button" id="btn-retry-online" class="btn ghost">Vérifier la connexion</button>
+    </footer>
+  </div>
+
+  <dialog id="complete-dialog">
+    <form method="dialog" id="complete-form">
+      <h2 id="complete-title">Clôturer la tâche</h2>
+      <div class="field">
+        <label for="c-actions">Actions menées</label>
+        <textarea id="c-actions" rows="3" required></textarea>
+      </div>
+      <div class="field">
+        <label for="c-client">Nom du client (signataire)</label>
+        <input id="c-client" type="text" required>
+      </div>
+      <div class="field">
+        <label>Note du client <span class="hint-inline">(facultatif)</span></label>
+        <div class="starinput" id="c-rating">
+          <button type="button" class="starbtn" data-star="1">★</button>
+          <button type="button" class="starbtn" data-star="2">★</button>
+          <button type="button" class="starbtn" data-star="3">★</button>
+          <button type="button" class="starbtn" data-star="4">★</button>
+          <button type="button" class="starbtn" data-star="5">★</button>
+          <button type="button" class="btn sm ghost" id="c-rating-clear">Effacer</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Signature du client</label>
+        <canvas id="c-signature" width="300" height="140"></canvas>
+        <button type="button" class="btn sm ghost" id="c-sig-clear">Effacer la signature</button>
+      </div>
+      <div id="complete-error" class="error" hidden></div>
+      <div class="dlg-actions">
+        <button type="button" class="btn ghost" id="c-cancel">Annuler</button>
+        <button type="submit" class="btn">Enregistrer (sera envoyé dès le retour du réseau)</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="offline.js"></script>
+</body>
+</html>

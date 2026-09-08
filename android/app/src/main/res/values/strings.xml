@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Uplinks Apps</string>
+    <string name="title_activity_main">Uplinks Apps</string>
+    <string name="package_name">com.uplinksafrica.trousseau</string>
+    <string name="custom_url_scheme">com.uplinksafrica.trousseau</string>
+</resources>

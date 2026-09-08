@@ -1,0 +1,74 @@
+============================================================
+ PROJET MOBILE "UPLINKS APPS" — VERSION COMPLÈTE REGÉNÉRÉE
+============================================================
+
+POURQUOI CE NOUVEAU ZIP
+------------------------------
+En vérifiant le dossier que vous m'avez envoyé, j'ai confirmé votre
+impression : les dossiers "android" et "ios" étaient bien incomplets
+(corrompus). Il ne restait que 2-3 fichiers de réglage (capacitor.config.json,
+strings.xml, Info.plist) mais PAS le vrai projet natif — ni le projet Gradle
+complet côté Android (build.gradle, gradlew, AndroidManifest.xml, dossiers
+mipmap des icônes...), ni le vrai projet Xcode côté iOS (App.xcodeproj,
+AppDelegate.swift, Assets.xcassets...). C'est exactement ce qui causait tous
+les blocages rencontrés (module "test" au lieu de "app", bouton "Build APK"
+grisé, erreur "ios platform has not been added yet", etc.).
+
+Ce zip-ci contient le projet ENTIER, régénéré proprement de A à Z à partir de
+vos réglages (capacitor.config.ts) et de vos visuels (dossier assets/ :
+icône et écran de démarrage clair/sombre) — plus rien à corriger à la main,
+tout est déjà complet et cohérent :
+  - Le nom de l'app ("Uplinks Apps") et son adresse
+    (https://uplinksafrica.com/apps/) sont déjà en place, identiques à avant.
+  - Les icônes de l'app (toutes tailles, Android ET iOS) ont été générées
+    automatiquement à partir de vos fichiers assets/icon*.png.
+  - L'écran de démarrage (splash) a aussi été généré, clair et sombre.
+  - Le fichier .github/workflows/build-android.yml (pour la construction
+    automatique de l'APK via GitHub) est inclus et à la bonne place.
+
+À FAIRE DE VOTRE CÔTÉ — REMPLACEMENT COMPLET
+--------------------------------------------------
+1. Supprimez ENTIÈREMENT votre ancien dossier de projet mobile (celui utilisé
+   jusqu'ici, avec les dossiers "android" et "ios" incomplets). Ne gardez
+   rien de l'ancien — pas de fusion, un remplacement pur et simple.
+   Si un dossier "desktop-tutorial" traînait à côté (un dépôt d'exemple créé
+   par erreur par GitHub Desktop), supprimez-le aussi : il n'a jamais fait
+   partie de ce projet.
+2. Dézippez ce nouveau fichier à la place, par exemple dans :
+   D:\SITE WEB KENG ET TROUSSEAU\APPS_UPLS\trousseaumobile\
+   (ou l'emplacement de votre choix, du moment que c'est un dossier local,
+   pas synchronisé par OneDrive).
+3. Ouvrez un terminal dans ce dossier et lancez une seule fois :
+       npm install
+   (cette fois le fichier package-lock.json est complet, l'installation
+   devrait se dérouler normalement).
+
+ANDROID (Android Studio)
+----------------------------
+Le dossier "android" est maintenant un projet Gradle complet et valide.
+Ouvrez directement le sous-dossier "android" dans Android Studio (File →
+Open → sélectionnez le dossier "android" de ce projet). PAS besoin de
+relancer "npx cap add android" — c'est déjà fait. Une fois la synchronisation
+Gradle terminée : Build → Build App Bundle(s) / APK(s) → Build APK(s).
+
+iOS (Xcode, sur Mac)
+------------------------
+Le dossier "ios" est maintenant un projet Xcode complet. Ouvrez directement
+"ios/App/App.xcodeproj" dans Xcode. Ce projet utilise Swift Package Manager
+(pas CocoaPods) pour ses dépendances — Xcode les télécharge tout seul à
+l'ouverture, pas besoin d'installer CocoaPods ni de lancer "pod install".
+
+GITHUB (construction automatique de l'APK dans le cloud)
+--------------------------------------------------------------
+Le fichier .github/workflows/build-android.yml est déjà inclus et bien
+placé dans ce zip. Publiez ce dossier complet (avec le dossier caché
+".github" — pensez à activer l'affichage des fichiers cachés dans
+l'Explorateur/Finder pour vérifier qu'il est bien présent avant d'envoyer)
+dans votre dépôt GitHub. L'onglet "Actions" devrait alors lancer la
+construction automatiquement.
+
+IMPORTANT — SERVEUR
+------------------------
+Comme avant : le dossier "apps" (portail unifié Trousseau / Tâches /
+Facturation) doit être en ligne sur uplinksafrica.com/apps/ AVANT d'installer
+une build issue de ce projet, sinon l'app affichera une erreur au démarrage.

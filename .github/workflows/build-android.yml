@@ -1,0 +1,28 @@
+name: Build APK Android (Trousseau)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - name: Installer les dépendances
+        run: npm install
+      - name: Synchroniser le projet Capacitor
+        run: npx cap sync android
+      - name: Rendre gradlew exécutable
+        run: chmod +x android/gradlew
+      - name: Construire l'APK (debug, installable directement)
+        working-directory: android
+        run: ./gradlew assembleDebug
+      - name: Publier l'APK comme fichier téléchargeable
+        uses: actions/upload-artifact@v4
+        with:
+          name: trousseau-android-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
