@@ -39,11 +39,26 @@
       <div class="topbar-sub" id="pending-indicator"></div>
     </header>
 
-    <div id="offline-list" class="list"></div>
+    <nav id="offline-tabs" class="offline-tabs">
+      <button type="button" class="tabbtn" data-tab="tasks">Tâches</button>
+      <button type="button" class="tabbtn" data-tab="trousseau" id="tab-btn-trousseau" hidden>Trousseau</button>
+      <button type="button" class="tabbtn" data-tab="facturation" id="tab-btn-facturation" hidden>Facturation</button>
+      <button type="button" class="tabbtn" data-tab="rights" id="tab-btn-rights" hidden>Droits</button>
+    </nav>
 
-    <div id="offline-empty" class="empty" hidden>
-      <p>Aucune tâche en cache pour l'instant.</p>
-      <p class="hint">Ouvrez l'app avec internet au moins une fois pour que vos tâches soient disponibles hors-ligne.</p>
+    <div id="offline-scroll" class="offline-scroll">
+      <div id="pull-indicator" class="pull-indicator" hidden>Tirez vers le bas pour actualiser…</div>
+
+      <div id="tab-tasks" class="tabpane">
+        <div id="offline-list" class="list"></div>
+        <div id="offline-empty" class="empty" hidden>
+          <p>Aucune tâche en cache pour l'instant.</p>
+          <p class="hint">Ouvrez l'app avec internet au moins une fois pour que vos tâches soient disponibles hors-ligne.</p>
+        </div>
+      </div>
+      <div id="tab-trousseau" class="tabpane" hidden></div>
+      <div id="tab-facturation" class="tabpane" hidden></div>
+      <div id="tab-rights" class="tabpane" hidden></div>
     </div>
 
     <footer class="footer">

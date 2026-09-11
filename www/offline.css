@@ -126,3 +126,59 @@ dialog h2{ font-size:16.5px; margin:0 0 14px; }
   background:var(--ink); color:var(--ground); padding:10px 16px; border-radius:10px; font-size:13.5px;
   box-shadow:var(--shadow); z-index:50; max-width:88vw; text-align:center;
 }
+
+/* ---------------- écran hors-ligne : onglets + sections en lecture seule ---------------- */
+
+#offline-app{ display:flex; flex-direction:column; height:100vh; }
+
+.offline-tabs{
+  display:flex; gap:4px; padding:8px 10px 0; overflow-x:auto;
+  background:var(--surface); border-bottom:1px solid var(--line); flex:0 0 auto;
+  -webkit-overflow-scrolling:touch;
+}
+.tabbtn{
+  border:none; background:transparent; padding:9px 13px; border-radius:8px 8px 0 0;
+  font-size:13px; font-weight:600; color:var(--ink-muted); white-space:nowrap;
+}
+.tabbtn.active{ color:var(--accent-strong); background:var(--accent-soft); }
+
+.offline-scroll{
+  flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; position:relative;
+  overscroll-behavior-y:contain;
+}
+
+.pull-indicator{
+  text-align:center; padding:10px 12px; font-size:12.5px; color:var(--ink-muted);
+}
+
+.tabpane{ min-height:100%; }
+#tab-trousseau, #tab-facturation, #tab-rights{ padding:12px; }
+
+.hint{ font-size:12.5px; color:var(--ink-muted); margin:0 0 10px; }
+
+.offline-client{
+  background:var(--surface); border:1px solid var(--line); border-radius:12px; margin-bottom:10px; overflow:hidden;
+}
+.offline-client > summary{
+  padding:12px 14px; font-weight:600; font-size:14px; cursor:pointer; list-style:none;
+}
+.offline-client > summary::-webkit-details-marker{ display:none; }
+.offline-client > summary::marker{ content:''; }
+.offline-client-body{
+  padding:0 14px 14px; display:flex; flex-direction:column; gap:10px; border-top:1px solid var(--line);
+}
+.offline-client-body > .offline-kv:first-child{ margin-top:12px; }
+
+.offline-kv{ font-size:12.5px; color:var(--ink-muted); display:flex; flex-direction:column; gap:3px; }
+.offline-kv code{
+  background:var(--ground); border:1px solid var(--line); border-radius:5px; padding:1px 6px; font-size:12px;
+  color:var(--ink);
+}
+
+.offline-equip-card{
+  background:var(--ground); border:1px solid var(--line); border-radius:10px; padding:11px 13px; margin-bottom:8px;
+  display:flex; flex-direction:column; gap:5px;
+}
+.offline-equip-card:last-child{ margin-bottom:0; }
+.offline-equip-card .t-title{ font-weight:600; font-size:14px; }
+.offline-equip-card .t-meta{ font-size:12.5px; color:var(--ink-muted); }

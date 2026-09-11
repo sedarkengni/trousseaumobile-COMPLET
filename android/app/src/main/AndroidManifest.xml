@@ -32,4 +32,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Notifications push (Android 13+ exige cette autorisation explicite,
+         demandée à l'utilisateur au moment de la connexion — voir
+         www/offline.js). Sans effet sur les versions d'Android antérieures. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

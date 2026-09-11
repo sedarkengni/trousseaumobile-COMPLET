@@ -23,7 +23,20 @@
   var LIVE_APP_URL = API_ORIGIN + '/apps/';
   var API_MOBILE_AUTH = API_ORIGIN + '/trousseau/api-mobile.php';
   var API_TASKS = API_ORIGIN + '/task/tasks-api.php';
+  // Ces trois routes existaient déjà pour le site web (authentification par
+  // cookie) ; elles acceptent AUSSI le jeton mobile (X-Api-Token) sans aucune
+  // modification côté serveur, seuls des en-têtes CORS ont été ajoutés pour
+  // que cette coquille (origine différente) puisse les appeler. Chacune
+  // applique déjà elle-même les droits du compte (mots de passe masqués si
+  // le compte n'a pas le droit de les voir, 403 si l'app ne lui est pas
+  // ouverte, etc.) — la mise en cache ne voit donc jamais plus que ce que
+  // l'utilisateur verrait normalement en ligne.
+  var API_TROUSSEAU_STORE = API_ORIGIN + '/trousseau/api.php?resource=store';
+  var API_FACTURATION = API_ORIGIN + '/facturation/catalog-api.php';
+  var API_RIGHTS = API_ORIGIN + '/apps/rights-api.php';
   var PING_TIMEOUT_MS = 6000;
+  // Onglet actif dans l'écran hors-ligne ('tasks' | 'trousseau' | 'facturation' | 'rights').
+  var CURRENT_TAB = 'tasks';
 
   /* ---------------- petit magasin IndexedDB ---------------- */
 
@@ -195,6 +208,39 @@
     return 'Appareil mobile';
   }
 
+  /* ---------------- notifications push (Android) ---------------- */
+  // N'a AUCUN effet tant que : (a) l'app ne tourne pas réellement dans la
+  // coquille Capacitor (donc jamais dans un navigateur normal), ou (b) le
+  // plugin PushNotifications n'a pas encore été inclus dans la build (avant
+  // que "npm install" + la synchronisation Capacitor ne l'ajoutent). Ne
+  // bloque jamais la connexion/synchronisation même en cas d'échec —
+  // l'usage normal de l'app ne dépend jamais des notifications.
+  function setupPushNotifications(token){
+    try {
+      if (!window.Capacitor || !Capacitor.isNativePlatform || !Capacitor.isNativePlatform()) return;
+      var Push = Capacitor.Plugins && Capacitor.Plugins.PushNotifications;
+      if (!Push) return;
+
+      Push.checkPermissions().then(function(perm){
+        if (perm && perm.receive === 'granted') return perm;
+        return Push.requestPermissions();
+      }).then(function(perm){
+        if (!perm || perm.receive !== 'granted') return;
+        Push.addListener('registration', function(tokenData){
+          if (!tokenData || !tokenData.value) return;
+          apiFetch(API_TASKS, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ op: 'registerPushToken', token: tokenData.value, platform: 'android' })
+          }, token).catch(function(){ /* réessaiera au prochain démarrage/connexion */ });
+        });
+        Push.addListener('registrationError', function(err){
+          console.log('Notifications push : erreur d\'enregistrement', err);
+        });
+        Push.register();
+      }).catch(function(){ /* silencieux : jamais bloquant pour le reste de l'app */ });
+    } catch (e) { /* jamais bloquant */ }
+  }
+
   /* ---------------- synchronisation ---------------- */
 
   function flushPendingActions(token){
@@ -259,6 +305,27 @@
           return metaSet('lastSync', json.serverTime || Date.now());
         });
       });
+    }).then(function(){
+      // Trousseau, Facturation et Droits : mis en cache "au mieux" — si l'une
+      // de ces trois routes échoue (pas d'accès à cette app pour ce compte,
+      // ou app pas installée), on n'annule pas toute la synchronisation pour
+      // autant : on vide juste le cache de cette section (elle n'apparaîtra
+      // pas dans les onglets hors-ligne). Seul l'échec des TÂCHES (ci-dessus)
+      // fait échouer la synchronisation dans son ensemble.
+      return Promise.all([
+        apiFetch(API_TROUSSEAU_STORE, { method: 'GET' }, token)
+          .then(function(r){ return r.status === 200 ? r.json() : null; })
+          .catch(function(){ return null; })
+          .then(function(json){ return metaSet('trousseauStore', json); }),
+        apiFetch(API_FACTURATION, { method: 'GET' }, token)
+          .then(function(r){ return r.status === 200 ? r.json() : null; })
+          .catch(function(){ return null; })
+          .then(function(json){ return metaSet('facturationCatalog', json); }),
+        apiFetch(API_RIGHTS, { method: 'GET' }, token)
+          .then(function(r){ return r.status === 200 ? r.json() : null; })
+          .catch(function(){ return null; })
+          .then(function(json){ return metaSet('rightsData', json); }),
+      ]);
     });
   }
 
@@ -298,8 +365,58 @@
   var CURRENT_TASKS = [];
   var CURRENT_TOKEN = null;
 
+  function escHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+
+  // ---------------- écran hors-ligne : onglets (Tâches / Trousseau / Facturation / Droits) ----------------
+  // Tout ce qui est dans "Apps" est désormais consultable hors-ligne. Seul
+  // l'onglet Tâches reste MODIFIABLE hors-ligne (clôture d'une tâche, mise en
+  // file d'attente) — Trousseau, Facturation et Droits sont en lecture seule
+  // hors-ligne : ce sont des données déjà filtrées par le serveur selon les
+  // droits du compte (voir refreshCache), donc sûres à afficher telles
+  // quelles, mais les MODIFIER exige une vraie connexion (cohérence des
+  // données partagées entre techniciens, gestion des droits sensible, etc.).
+
   function renderOfflineApp(){
     showOnly('offline-app');
+    Promise.all([metaGet('trousseauStore'), metaGet('facturationCatalog'), metaGet('rightsData')]).then(function(res){
+      var hasTrousseau = !!(res[0] && (res[0].clients || res[0].equipment));
+      var hasFacturation = !!(res[1] && res[1].items);
+      var hasRights = !!(res[2] && res[2].users);
+      $('tab-btn-trousseau').hidden = !hasTrousseau;
+      $('tab-btn-facturation').hidden = !hasFacturation;
+      $('tab-btn-rights').hidden = !hasRights;
+      if (CURRENT_TAB === 'trousseau' && !hasTrousseau) CURRENT_TAB = 'tasks';
+      if (CURRENT_TAB === 'facturation' && !hasFacturation) CURRENT_TAB = 'tasks';
+      if (CURRENT_TAB === 'rights' && !hasRights) CURRENT_TAB = 'tasks';
+      renderCurrentTab();
+    });
+  }
+
+  document.querySelectorAll('#offline-tabs .tabbtn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      CURRENT_TAB = btn.getAttribute('data-tab');
+      renderCurrentTab();
+    });
+  });
+
+  function renderCurrentTab(){
+    document.querySelectorAll('#offline-tabs .tabbtn').forEach(function(btn){
+      btn.classList.toggle('active', btn.getAttribute('data-tab') === CURRENT_TAB);
+    });
+    ['tasks', 'trousseau', 'facturation', 'rights'].forEach(function(tab){
+      $('tab-' + tab).hidden = (tab !== CURRENT_TAB);
+    });
+    if (CURRENT_TAB === 'tasks') renderOfflineTasksTab();
+    else if (CURRENT_TAB === 'trousseau') renderOfflineTrousseauTab();
+    else if (CURRENT_TAB === 'facturation') renderOfflineFacturationTab();
+    else if (CURRENT_TAB === 'rights') renderOfflineRightsTab();
+  }
+
+  function renderOfflineTasksTab(){
     Promise.all([tasksGetAll(), pendingGetAll()]).then(function(res){
       CURRENT_TASKS = res[0].filter(function(t){ return t.status !== 'fait'; })
         .sort(function(a, b){ return (a.dueDate || '').localeCompare(b.dueDate || ''); });
@@ -339,6 +456,174 @@
     });
   }
 
+  function renderOfflineTrousseauTab(){
+    var pane = $('tab-trousseau');
+    metaGet('trousseauStore').then(function(store){
+      store = store || { clients: [], equipment: [] };
+      var clients = store.clients || [];
+      var equipment = store.equipment || [];
+      if (!clients.length) {
+        pane.innerHTML = '<p class="hint">Aucun client en cache pour l\'instant.</p>';
+        return;
+      }
+      var equipByClient = {};
+      equipment.forEach(function(e){
+        var cid = e.clientId || '';
+        (equipByClient[cid] = equipByClient[cid] || []).push(e);
+      });
+      var html = '<p class="hint">Lecture seule hors-ligne — les modifications nécessitent une connexion.</p>';
+      clients.slice().sort(function(a, b){ return (a.name || '').localeCompare(b.name || ''); }).forEach(function(c){
+        var eqs = equipByClient[c.id] || [];
+        html += '<details class="offline-client"><summary>' + escHtml(c.name || 'Client') +
+          (c.code ? ' <span class="hint-inline">(' + escHtml(c.code) + ')</span>' : '') +
+          ' <span class="hint-inline">— ' + eqs.length + ' équipement' + (eqs.length > 1 ? 's' : '') + '</span></summary>';
+        html += '<div class="offline-client-body">';
+        if (c.phone || c.email || c.address) {
+          html += '<div class="offline-kv">' +
+            (c.phone ? ('<div>Tél : ' + escHtml(c.phone) + '</div>') : '') +
+            (c.email ? ('<div>Email : ' + escHtml(c.email) + '</div>') : '') +
+            (c.address ? ('<div>Adresse : ' + escHtml(c.address) + '</div>') : '') +
+            '</div>';
+        }
+        if (!eqs.length) { html += '<p class="hint">Aucun équipement enregistré.</p>'; }
+        eqs.forEach(function(e){
+          html += '<div class="offline-equip-card">';
+          html += '<div class="t-title">' + escHtml(e.name || 'Équipement') + '</div>';
+          html += '<div class="t-meta">S/N ' + escHtml(e.serial || '—') + (e.tag ? (' · ' + escHtml(e.tag)) : '') + '</div>';
+          if (e.accessUser || e.accessPassSet) {
+            html += '<div class="offline-kv">' +
+              (e.accessUser ? ('<div>Identifiant : ' + escHtml(e.accessUser) + '</div>') : '') +
+              '<div>Mot de passe : ' + (e.accessPass ? ('<code>' + escHtml(e.accessPass) + '</code>') : (e.accessPassSet ? '(enregistré — droit de le voir requis)' : '—')) + '</div>' +
+              '</div>';
+          }
+          (e.wifiNetworks || []).forEach(function(w){
+            html += '<div class="offline-kv"><div>Wifi ' + escHtml(w.ssid || '') + (w.band ? (' (' + escHtml(w.band) + ')') : '') + ' : ' +
+              (w.pass ? ('<code>' + escHtml(w.pass) + '</code>') : (w.passSet ? '(enregistré — droit de le voir requis)' : '—')) + '</div></div>';
+          });
+          if (e.comment) { html += '<div class="hint">' + escHtml(e.comment).replace(/\n/g, '<br>') + '</div>'; }
+          html += '</div>';
+        });
+        html += '</div></details>';
+      });
+      pane.innerHTML = html;
+    });
+  }
+
+  function renderOfflineFacturationTab(){
+    var pane = $('tab-facturation');
+    metaGet('facturationCatalog').then(function(cat){
+      var items = (cat && cat.items) || [];
+      if (!items.length) {
+        pane.innerHTML = '<p class="hint">Aucun article/service en cache pour l\'instant.</p>';
+        return;
+      }
+      var html = '<p class="hint">Lecture seule hors-ligne — les modifications nécessitent une connexion.</p>';
+      items.slice().sort(function(a, b){ return (a.name || '').localeCompare(b.name || ''); }).forEach(function(it){
+        html += '<div class="offline-equip-card">' +
+          '<div class="t-title">' + escHtml(it.name || '(sans nom)') + '</div>' +
+          '<div class="t-meta">' + (it.type === 'service' ? 'Service' : 'Article') +
+          (it.unitPrice != null && it.unitPrice !== '' ? (' · ' + escHtml(it.unitPrice) + ' ' + escHtml(it.currency || '')) : '') + '</div>' +
+          (it.description ? ('<div class="hint">' + escHtml(it.description) + '</div>') : '') +
+          '</div>';
+      });
+      pane.innerHTML = html;
+    });
+  }
+
+  function renderOfflineRightsTab(){
+    var pane = $('tab-rights');
+    metaGet('rightsData').then(function(data){
+      var users = (data && data.users) || [];
+      if (!users.length) {
+        pane.innerHTML = '<p class="hint">Aucune donnée de droits en cache pour l\'instant.</p>';
+        return;
+      }
+      function flags(obj, map){
+        var out = [];
+        map.forEach(function(pair){ if (obj && obj[pair[0]]) out.push(pair[1]); });
+        return out.length ? out.join(', ') : '—';
+      }
+      var TR_MAP = [['canWrite','Écriture'], ['canDelete','Suppression'], ['canViewPasswords','Voir mots de passe'], ['canManageUsers','Gestion des comptes']];
+      var APP_MAP = [['access','Accès'], ['edit','Modification'], ['delete','Suppression'], ['admin','Administrateur']];
+      var html = '<p class="hint">Lecture seule hors-ligne — les modifications nécessitent une connexion.</p>';
+      users.slice().sort(function(a, b){ return (a.username || '').localeCompare(b.username || ''); }).forEach(function(u){
+        html += '<div class="offline-equip-card">';
+        html += '<div class="t-title">' + escHtml(u.username || '') + (u.isSuperAdmin ? ' <span class="pill pill-pending">Super admin</span>' : '') + '</div>';
+        if (!u.isSuperAdmin) {
+          html += '<div class="offline-kv">' +
+            '<div>Trousseau : ' + escHtml(flags(u.trousseau, TR_MAP)) + '</div>' +
+            (u.task ? ('<div>Tâches : ' + escHtml(flags(u.task, APP_MAP)) + '</div>') : '') +
+            (u.facturation ? ('<div>Facturation : ' + escHtml(flags(u.facturation, APP_MAP)) + '</div>') : '') +
+            '</div>';
+        } else {
+          html += '<div class="hint">Accès complet à toutes les applications.</div>';
+        }
+        html += '</div>';
+      });
+      pane.innerHTML = html;
+    });
+  }
+
+  /* ---------------- tirer pour actualiser (toutes les sections) ---------------- */
+
+  (function setupPullToRefresh(){
+    var scrollEl = $('offline-scroll');
+    var indicator = $('pull-indicator');
+    var startY = null, pulling = false, triggered = false;
+    var THRESHOLD = 70;
+
+    function onStart(ev){
+      if (scrollEl.scrollTop > 0) { startY = null; return; }
+      startY = (ev.touches ? ev.touches[0].clientY : ev.clientY);
+      pulling = true; triggered = false;
+    }
+    function onMove(ev){
+      if (!pulling || startY === null) return;
+      var y = (ev.touches ? ev.touches[0].clientY : ev.clientY);
+      var delta = y - startY;
+      if (delta <= 0) { indicator.hidden = true; return; }
+      if (scrollEl.scrollTop > 0) return;
+      ev.preventDefault();
+      indicator.hidden = false;
+      triggered = delta > THRESHOLD;
+      indicator.textContent = triggered ? 'Relâchez pour actualiser…' : 'Tirez vers le bas pour actualiser…';
+    }
+    function onEnd(){
+      if (pulling && triggered) {
+        indicator.textContent = 'Actualisation…';
+        doPullRefresh().then(function(){ indicator.hidden = true; });
+      } else {
+        indicator.hidden = true;
+      }
+      pulling = false; startY = null; triggered = false;
+    }
+    scrollEl.addEventListener('touchstart', onStart, { passive: true });
+    scrollEl.addEventListener('touchmove', onMove, { passive: false });
+    scrollEl.addEventListener('touchend', onEnd);
+    // Souris aussi (pratique pour tester sur ordinateur) :
+    scrollEl.addEventListener('mousedown', onStart);
+    document.addEventListener('mousemove', function(ev){ if (pulling) onMove(ev); });
+    document.addEventListener('mouseup', function(){ if (pulling) onEnd(); });
+  })();
+
+  function doPullRefresh(){
+    return metaGet('apiToken').then(function(token){
+      if (!token) { renderOfflineApp(); return; }
+      return reallyOnline(token).then(function(online){
+        if (!online) {
+          toast('Toujours hors-ligne — affichage des dernières données enregistrées.');
+          renderOfflineApp();
+          return;
+        }
+        // De retour en ligne : on synchronise (envoie les tâches en attente,
+        // rafraîchit tout le cache) puis on part sur le vrai site, exactement
+        // comme au démarrage — le "tirer pour actualiser" hors-ligne sert
+        // justement à redonner une chance de repasser en ligne à tout moment.
+        return syncThenGoLive(token);
+      });
+    });
+  }
+
   /* ---------------- clôture d'une tâche (hors-ligne) ---------------- */
 
   var completeDialog = $('complete-dialog');
@@ -351,6 +636,13 @@
 
   function sigClear(){
     sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+    // Fond blanc opaque (et pas transparent) : même règle que la fenêtre de
+    // clôture du site web et que le lien de validation client — un fond
+    // transparent produit un PNG dont le générateur de PDF (jsPDF) peut mal
+    // gérer la transparence (rectangle noir ou signature invisible dans le
+    // PDF exporté ensuite depuis le site).
+    sigCtx.fillStyle = '#ffffff';
+    sigCtx.fillRect(0, 0, sigCanvas.width, sigCanvas.height);
     sigHasStroke = false;
   }
   function sigPointFromEvent(ev){
@@ -386,6 +678,12 @@
       var v = parseInt(b.getAttribute('data-star'), 10);
       b.classList.toggle('filled', v <= ratingValue);
     });
+    // Note < 3 étoiles : le motif d'insatisfaction devient obligatoire (même
+    // règle que sur le lien de validation envoyé au client, et que dans la
+    // fenêtre de clôture normale du site web).
+    var isLow = ratingValue > 0 && ratingValue < 3;
+    document.getElementById('c-lowrating-wrap').hidden = !isLow;
+    document.getElementById('c-lowrating-reason').required = isLow;
   }
   document.querySelectorAll('#c-rating .starbtn').forEach(function(b){
     b.addEventListener('click', function(){
@@ -403,7 +701,9 @@
     $('complete-title').textContent = 'Clôturer — ' + (t.title || '');
     $('c-actions').value = '';
     $('c-client').value = '';
-    ratingValue = 0; renderStars();
+    ratingValue = parseInt(t.completionRating, 10) || 0;
+    $('c-lowrating-reason').value = t.completionLowRatingReason || '';
+    renderStars();
     sigClear();
     $('complete-error').hidden = true;
     completeDialog.showModal();
@@ -425,12 +725,19 @@
       errEl.hidden = false;
       return;
     }
+    var lowRatingReason = $('c-lowrating-reason').value.trim();
+    if (ratingValue > 0 && ratingValue < 3 && !lowRatingReason) {
+      errEl.textContent = 'La note est inférieure à 3 étoiles : merci de préciser pourquoi (obligatoire).';
+      errEl.hidden = false;
+      return;
+    }
     errEl.hidden = true;
 
     var payload = {
       op: 'update', id: completingTaskId, status: 'fait',
       completionActions: actions, completionClientName: clientName,
       completionRating: ratingValue > 0 ? ratingValue : null,
+      completionLowRatingReason: (ratingValue > 0 && ratingValue < 3) ? lowRatingReason : '',
       signatureDataUrl: sigCanvas.toDataURL('image/png'),
     };
 
@@ -469,6 +776,7 @@
         return;
       }
       CURRENT_TOKEN = token;
+      setupPushNotifications(token);
       reallyOnline(token).then(function(online){
         if (online) {
           syncThenGoLive(token);
@@ -493,6 +801,7 @@
         metaSet('apiToken', res.json.token).then(function(){
           showOnly('boot');
           bootMsg.textContent = 'Connexion réussie…';
+          setupPushNotifications(res.json.token);
           syncThenGoLive(res.json.token);
         });
       } else {
