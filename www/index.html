@@ -50,6 +50,10 @@
       <div id="pull-indicator" class="pull-indicator" hidden>Tirez vers le bas pour actualiser…</div>
 
       <div id="tab-tasks" class="tabpane">
+        <div class="tabpane-toolbar">
+          <button type="button" class="btn sm" id="btn-new-task">+ Nouvelle tâche</button>
+          <label class="chk-inline"><input type="checkbox" id="chk-show-done"> Voir aussi l'historique (terminées)</label>
+        </div>
         <div id="offline-list" class="list"></div>
         <div id="offline-empty" class="empty" hidden>
           <p>Aucune tâche en cache pour l'instant.</p>
@@ -88,6 +92,10 @@
           <button type="button" class="btn sm ghost" id="c-rating-clear">Effacer</button>
         </div>
       </div>
+      <div class="field" id="c-lowrating-wrap" hidden>
+        <label for="c-lowrating-reason">Motif de la note faible <span class="hint-inline">(obligatoire, note &lt; 3)</span></label>
+        <textarea id="c-lowrating-reason" rows="2"></textarea>
+      </div>
       <div class="field">
         <label>Signature du client</label>
         <canvas id="c-signature" width="300" height="140"></canvas>
@@ -96,6 +104,174 @@
       <div id="complete-error" class="error" hidden></div>
       <div class="dlg-actions">
         <button type="button" class="btn ghost" id="c-cancel">Annuler</button>
+        <button type="submit" class="btn">Enregistrer (sera envoyé dès le retour du réseau)</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============================================================
+       Nouvelle tâche (hors-ligne). Formulaire volontairement plus simple
+       que celui du site (pas de récurrence, pas d'équipement créé à la
+       volée) : voir LISEZ-MOI-OFFLINE-COMPLET.txt pour le détail de ce qui
+       reste réservé à la connexion internet.
+       ============================================================ -->
+  <dialog id="task-create-dialog">
+    <form method="dialog" id="task-create-form">
+      <h2>Nouvelle tâche</h2>
+      <div class="field">
+        <label for="tc-title">Intitulé</label>
+        <input id="tc-title" type="text" required>
+      </div>
+      <div class="field">
+        <label for="tc-client">Client</label>
+        <select id="tc-client"></select>
+        <button type="button" class="btn sm ghost" id="tc-new-client">+ Nouveau client</button>
+      </div>
+      <div class="field">
+        <label class="chk-inline"><input type="checkbox" id="tc-is-service"> Service (sans équipement particulier)</label>
+      </div>
+      <div class="field" id="tc-equipment-wrap">
+        <label>Équipement(s) concerné(s)</label>
+        <div id="tc-equipment-list" class="chklist"></div>
+        <p class="hint" id="tc-equipment-hint" hidden>Aucun équipement en cache pour ce client hors-ligne — laissez "Service" coché, ou ajoutez l'équipement d'abord depuis l'onglet Trousseau.</p>
+      </div>
+      <div class="field">
+        <label for="tc-description">Description <span class="hint-inline">(facultatif)</span></label>
+        <textarea id="tc-description" rows="2"></textarea>
+      </div>
+      <div class="field">
+        <label for="tc-tag">Catégorie</label>
+        <select id="tc-tag">
+          <option value="normal">Normal</option>
+          <option value="urgent">Urgent</option>
+          <option value="a_venir">À venir</option>
+          <option value="autre">Autre</option>
+        </select>
+      </div>
+      <div class="field" id="tc-taglabel-wrap" hidden>
+        <label for="tc-taglabel">Préciser la catégorie</label>
+        <input id="tc-taglabel" type="text">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="tc-taskdate">Date de la tâche</label>
+          <input id="tc-taskdate" type="date">
+        </div>
+        <div class="field">
+          <label for="tc-duedate">Échéance</label>
+          <input id="tc-duedate" type="date">
+        </div>
+      </div>
+      <div class="field">
+        <label>Assigné(e) à</label>
+        <div id="tc-assigned-list" class="chklist"></div>
+      </div>
+      <div id="task-create-error" class="error" hidden></div>
+      <div class="dlg-actions">
+        <button type="button" class="btn ghost" id="tc-cancel">Annuler</button>
+        <button type="submit" class="btn">Créer (sera envoyée dès le retour du réseau)</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============================================================
+       Nouveau client / modification (hors-ligne) — Trousseau.
+       ============================================================ -->
+  <dialog id="client-edit-dialog">
+    <form method="dialog" id="client-edit-form">
+      <h2 id="client-edit-title">Nouveau client</h2>
+      <div class="field">
+        <label for="ce-name">Nom</label>
+        <input id="ce-name" type="text" required>
+      </div>
+      <div class="field">
+        <label for="ce-phone">Téléphone</label>
+        <input id="ce-phone" type="text" required>
+      </div>
+      <div class="field">
+        <label for="ce-contact">Contact <span class="hint-inline">(facultatif)</span></label>
+        <input id="ce-contact" type="text">
+      </div>
+      <div class="field">
+        <label for="ce-email">Email <span class="hint-inline">(facultatif)</span></label>
+        <input id="ce-email" type="email">
+      </div>
+      <div class="field">
+        <label for="ce-address">Adresse <span class="hint-inline">(facultatif)</span></label>
+        <textarea id="ce-address" rows="2"></textarea>
+      </div>
+      <div id="client-edit-error" class="error" hidden></div>
+      <div class="dlg-actions">
+        <button type="button" class="btn ghost" id="ce-cancel">Annuler</button>
+        <button type="submit" class="btn">Enregistrer (sera envoyé dès le retour du réseau)</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============================================================
+       Nouvel équipement / modification (hors-ligne) — Trousseau.
+       Formulaire simplifié : un seul réseau Wifi éditable ici (les
+       éventuels réseaux Wifi supplémentaires ne sont pas touchés et
+       restent modifiables uniquement en ligne).
+       ============================================================ -->
+  <dialog id="equipment-edit-dialog">
+    <form method="dialog" id="equipment-edit-form">
+      <h2 id="equipment-edit-title">Nouvel équipement</h2>
+      <div class="field">
+        <label for="ee-name">Nom</label>
+        <input id="ee-name" type="text" required>
+      </div>
+      <div class="field">
+        <label for="ee-serial">Numéro de série</label>
+        <input id="ee-serial" type="text" required>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="ee-tag">Type / étiquette <span class="hint-inline">(facultatif)</span></label>
+          <input id="ee-tag" type="text">
+        </div>
+        <div class="field">
+          <label for="ee-ip">Adresse IP <span class="hint-inline">(facultatif)</span></label>
+          <input id="ee-ip" type="text">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="ee-owner">Propriétaire <span class="hint-inline">(facultatif)</span></label>
+          <input id="ee-owner" type="text">
+        </div>
+        <div class="field">
+          <label for="ee-etat">État <span class="hint-inline">(facultatif)</span></label>
+          <input id="ee-etat" type="text">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="ee-access-user">Identifiant d'accès <span class="hint-inline">(facultatif)</span></label>
+          <input id="ee-access-user" type="text">
+        </div>
+        <div class="field">
+          <label for="ee-access-pass">Mot de passe d'accès <span class="hint-inline">(facultatif)</span></label>
+          <input id="ee-access-pass" type="text">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="ee-wifi-ssid">Réseau Wifi <span class="hint-inline">(facultatif)</span></label>
+          <input id="ee-wifi-ssid" type="text">
+        </div>
+        <div class="field">
+          <label for="ee-wifi-pass">Mot de passe Wifi <span class="hint-inline">(facultatif)</span></label>
+          <input id="ee-wifi-pass" type="text">
+        </div>
+      </div>
+      <div class="field">
+        <label for="ee-comment">Commentaire <span class="hint-inline">(facultatif)</span></label>
+        <textarea id="ee-comment" rows="2"></textarea>
+      </div>
+      <div id="equipment-edit-error" class="error" hidden></div>
+      <div class="dlg-actions">
+        <button type="button" class="btn ghost" id="ee-cancel">Annuler</button>
         <button type="submit" class="btn">Enregistrer (sera envoyé dès le retour du réseau)</button>
       </div>
     </form>
