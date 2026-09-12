@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "777102009005",
+    "project_id": "uplinks-2a3e7",
+    "storage_bucket": "uplinks-2a3e7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:777102009005:android:f09c4d5da6a2ac79705c24",
+        "android_client_info": {
+          "package_name": "com.uplinksafrica.trousseau"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDruverDwE72g-rRP0_3lHxEnEm8HYrVzs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
